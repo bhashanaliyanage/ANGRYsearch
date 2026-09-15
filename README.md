@@ -131,6 +131,15 @@ Drawback of this indexing is inability to do substring searches, but the checkbo
 
 ### Configuration:
 
+### Interface
+
+The main window has a search field with a clear button, **Update index**, and
+**Settings**. Use **Fast search** for word-prefix matching; turn it off to search
+inside words. **Settings** provides appearance and search controls, and the
+**Dark mode** checkbox in the status bar switches appearance immediately.
+Existing shortcuts remain available, including **F6** to focus search and **F8**
+to toggle regex mode. Both light and dark appearances use the refreshed layout.
+
 * **config file** location: `~/.config/angrysearch/angrysearch.conf`  
   You can delete the config file whenever you wish, on the next run/close a new one will be created with the default values.
 

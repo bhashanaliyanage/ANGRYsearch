@@ -614,20 +614,41 @@ class CenterWidget(Qw.QWidget):
         self.search_input = Qw.QLineEdit()
         self.table = AngryTableView(self.setting_params['angrysearch_lite'],
                                     self.setting_params['row_height'])
-        self.upd_button = Qw.QPushButton('update')
-        self.fts_checkbox = Qw.QCheckBox()
-
-        grid = Qw.QGridLayout()
-        grid.setSpacing(10)
-
-        grid.addWidget(self.search_input, 1, 1)
-        grid.addWidget(self.fts_checkbox, 1, 3)
-        grid.addWidget(self.upd_button, 1, 4)
-        grid.addWidget(self.table, 2, 1, 4, 4)
-        self.setLayout(grid)
-
+        self.search_input.setObjectName('searchInput')
+        self.search_input.setPlaceholderText('Search files and folders…')
+        self.search_input.setAccessibleName('Search files and folders')
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.setMinimumHeight(44)
+        self.upd_button = Qw.QPushButton('Update index')
+        self.settings_button = Qw.QPushButton('Settings')
+        self.fts_checkbox = Qw.QCheckBox('Fast search')
+        title = Qw.QLabel('ANGRYsearch')
+        title.setObjectName('appTitle')
+        subtitle = Qw.QLabel('Find files. Keep moving.')
+        subtitle.setObjectName('subtitle')
+        header = Qw.QHBoxLayout()
+        header.addWidget(title)
+        header.addStretch()
+        header.addWidget(self.upd_button)
+        header.addWidget(self.settings_button)
+        modes = Qw.QHBoxLayout()
+        modes.addWidget(self.fts_checkbox)
+        modes.addStretch()
+        hint = Qw.QLabel('F6  Search   ·   F8  Regex')
+        hint.setObjectName('subtitle')
+        modes.addWidget(hint)
+        layout = Qw.QVBoxLayout(self)
+        layout.setContentsMargins(20, 18, 20, 12)
+        layout.setSpacing(12)
+        layout.addLayout(header)
+        layout.addWidget(subtitle)
+        layout.addWidget(self.search_input)
+        layout.addLayout(modes)
+        layout.addWidget(self.table, 1)
         self.setTabOrder(self.search_input, self.table)
-        self.setTabOrder(self.table, self.upd_button)
+        self.setTabOrder(self.table, self.fts_checkbox)
+        self.setTabOrder(self.fts_checkbox, self.upd_button)
+        self.setTabOrder(self.upd_button, self.settings_button)
 
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
@@ -717,7 +738,7 @@ class AngryMainWindow(Qw.QMainWindow):
         if self.settings.value('Last_Run/geometry'):
             self.restoreGeometry(self.settings.value('Last_Run/geometry'))
         else:
-            self.resize(720, 540)
+            self.resize(900, 620)
             qr = self.frameGeometry()
             cp = Qw.QDesktopWidget().availableGeometry().center()
             qr.moveCenter(cp)
@@ -840,9 +861,73 @@ class AngryMainWindow(Qw.QMainWindow):
         self.tray_icon.hide()
         event.accept()
 
+    def modern_stylesheet(self, dark):
+        colors = (('#181c24', '#222834', '#293141', '#e6ebf2', '#a7b3c5', '#394457')
+                  if dark else
+                  ('#f4f6fa', '#ffffff', '#edf1f7', '#202b3c', '#59677b', '#d5dce7'))
+        background, surface, alternate, text, muted, border = colors
+        return """
+            QMainWindow, QDialog { background: %s; }
+            QWidget { color: %s; }
+            QLabel, QCheckBox { background: transparent; }
+            QLabel#appTitle { font-size: 22px; font-weight: bold; }
+            QLabel#subtitle { color: %s; }
+            QLineEdit, QComboBox { background: %s; border: 1px solid %s;
+                border-radius: 6px; padding: 7px; }
+            QLineEdit#searchInput { font-size: 16px; padding: 8px 12px; }
+            QLineEdit:focus, QComboBox:focus { border: 1px solid #5285dd; }
+            QPushButton { background: %s; border: 1px solid %s;
+                border-radius: 6px; padding: 8px 14px; }
+            QPushButton:hover { background: %s; border-color: #5285dd; }
+            QPushButton:focus { border-color: #5285dd; }
+            QPushButton:disabled, QCheckBox:disabled { color: %s; }
+            QCheckBox { spacing: 7px; }
+            QTableView { background: %s; alternate-background-color: %s;
+                color: %s; border: 1px solid %s; border-radius: 6px;
+                selection-background-color: #315fa8; selection-color: #ffffff; }
+            QHeaderView::section { background: %s; color: %s;
+                border: none; border-bottom: 1px solid %s; padding: 8px; }
+            QStatusBar { background: %s; color: %s; }
+            QStatusBar::item { border: none; }
+        """ % (background, text, muted, surface, border, surface, border,
+               alternate, muted, surface, alternate, text, border,
+               alternate, muted, border, background, muted)
+
+    def show_settings(self):
+        dialog = Qw.QDialog(self)
+        dialog.setWindowTitle('Settings')
+        dialog.setMinimumWidth(360)
+        layout = Qw.QVBoxLayout(dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(16)
+        heading = Qw.QLabel('Appearance')
+        heading.setObjectName('appTitle')
+        layout.addWidget(heading)
+        dark = Qw.QCheckBox('Dark mode')
+        dark.setChecked(self.dark_theme_checkbox.isChecked())
+        def change_appearance(enabled):
+            self.dark_theme_checkbox.setChecked(enabled)
+            dark.setChecked(self.dark_theme_checkbox.isChecked())
+        dark.toggled.connect(change_appearance)
+        self.dark_theme_checkbox.toggled.connect(dark.setChecked)
+        layout.addWidget(dark)
+        layout.addWidget(Qw.QLabel('Search'))
+        fast = Qw.QCheckBox('Fast search (match beginnings of words)')
+        fast.setChecked(self.center.fts_checkbox.isChecked())
+        fast.toggled.connect(self.center.fts_checkbox.setChecked)
+        layout.addWidget(fast)
+        note = Qw.QLabel('Turn off fast search to match inside words.\nChanges apply immediately. Regex: F8 in the main window.')
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        buttons = Qw.QDialogButtonBox(Qw.QDialogButtonBox.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.exec_()
+        dialog.deleteLater()
+
     def apply_dark_theme(self, enabled):
         if not enabled:
-            self.setStyleSheet('')
+            self.setStyleSheet(self.modern_stylesheet(False))
             return True
 
         paths = [
@@ -858,7 +943,7 @@ class AngryMainWindow(Qw.QMainWindow):
                     style_data = stylesheet.read()
             except OSError:
                 continue
-            self.setStyleSheet(style_data)
+            self.setStyleSheet(style_data + self.modern_stylesheet(True))
             return True
         return False
 
@@ -877,7 +962,9 @@ class AngryMainWindow(Qw.QMainWindow):
         self.icon = self.get_tray_icon()
         self.setWindowIcon(self.icon)
 
-        self.apply_dark_theme(self.setting_params['darktheme'])
+        theme_loaded = self.apply_dark_theme(self.setting_params['darktheme'])
+        if not theme_loaded:
+            self.apply_dark_theme(False)
 
         self.queries_threads = []
         self.waiting_threads = []
@@ -895,7 +982,7 @@ class AngryMainWindow(Qw.QMainWindow):
         self.setStatusBar(self.status_bar)
         self.dark_theme_checkbox = Qw.QCheckBox('Dark mode', self)
         self.dark_theme_checkbox.setToolTip('Use a dark appearance (saved automatically)')
-        self.dark_theme_checkbox.setChecked(bool(self.styleSheet()))
+        self.dark_theme_checkbox.setChecked(self.setting_params['darktheme'] and theme_loaded)
         self.dark_theme_checkbox.toggled.connect(self.toggle_dark_theme)
         self.status_bar.addPermanentWidget(self.dark_theme_checkbox)
 
@@ -907,6 +994,10 @@ class AngryMainWindow(Qw.QMainWindow):
             self.center.fts_checkbox.setChecked(True)
         self.center.fts_checkbox.stateChanged.connect(self.checkbox_fts_click)
 
+        self.center.settings_button.clicked.connect(self.show_settings)
+        self.center.table.setShowGrid(False)
+        if not self.setting_params['row_height']:
+            self.center.table.verticalHeader().setDefaultSectionSize(32)
         self.center.table.setGridStyle(0)
         self.center.table.setSortingEnabled(True)
         self.center.table.sortByColumn(1, 0)
