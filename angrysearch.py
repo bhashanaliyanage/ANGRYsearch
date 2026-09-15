@@ -840,27 +840,44 @@ class AngryMainWindow(Qw.QMainWindow):
         self.tray_icon.hide()
         event.accept()
 
+    def apply_dark_theme(self, enabled):
+        if not enabled:
+            self.setStyleSheet('')
+            return True
+
+        paths = [
+            join_path(os.path.dirname(os.path.realpath(__file__)),
+                      'qdarkstylesheet.qss'),
+            'qdarkstylesheet.qss',
+            '/usr/share/angrysearch/qdarkstylesheet.qss',
+            '/opt/angrysearch/qdarkstylesheet.qss'
+        ]
+        for path in paths:
+            try:
+                with open(path, 'r') as stylesheet:
+                    style_data = stylesheet.read()
+            except OSError:
+                continue
+            self.setStyleSheet(style_data)
+            return True
+        return False
+
+    def toggle_dark_theme(self, enabled):
+        if not self.apply_dark_theme(enabled):
+            self.dark_theme_checkbox.blockSignals(True)
+            self.dark_theme_checkbox.setChecked(False)
+            self.dark_theme_checkbox.blockSignals(False)
+            self.status_bar.showMessage('Dark theme stylesheet could not be loaded', 5000)
+            return
+        self.setting_params['darktheme'] = enabled
+        self.settings.setValue('darktheme', enabled)
+        self.settings.sync()
+
     def init_gui(self):
         self.icon = self.get_tray_icon()
         self.setWindowIcon(self.icon)
 
-        if self.setting_params['darktheme']:
-            self.style_data = ''
-            if os.path.isfile('qdarkstylesheet.qss'):
-                f = open('qdarkstylesheet.qss', 'r')
-                self.style_data = f.read()
-                f.close()
-                self.setStyleSheet(self.style_data)
-            elif os.path.isfile('/usr/share/angrysearch/qdarkstylesheet.qss'):
-                f = open('/usr/share/angrysearch/qdarkstylesheet.qss', 'r')
-                self.style_data = f.read()
-                f.close()
-                self.setStyleSheet(self.style_data)
-            elif os.path.isfile('/opt/angrysearch/qdarkstylesheet.qss'):
-                f = open('/opt/angrysearch/qdarkstylesheet.qss', 'r')
-                self.style_data = f.read()
-                f.close()
-                self.setStyleSheet(self.style_data)
+        self.apply_dark_theme(self.setting_params['darktheme'])
 
         self.queries_threads = []
         self.waiting_threads = []
@@ -876,6 +893,11 @@ class AngryMainWindow(Qw.QMainWindow):
         self.setWindowTitle('ANGRYsearch')
         self.status_bar = Qw.QStatusBar(self)
         self.setStatusBar(self.status_bar)
+        self.dark_theme_checkbox = Qw.QCheckBox('Dark mode', self)
+        self.dark_theme_checkbox.setToolTip('Use a dark appearance (saved automatically)')
+        self.dark_theme_checkbox.setChecked(bool(self.styleSheet()))
+        self.dark_theme_checkbox.toggled.connect(self.toggle_dark_theme)
+        self.status_bar.addPermanentWidget(self.dark_theme_checkbox)
 
         self.center.fts_checkbox.setToolTip(
             'check = fast search but no substrings\n'
